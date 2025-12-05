@@ -1,5 +1,7 @@
 # 智慧選址決策支援系統 (Smart Location DSS) 🗺️
 
+### 🚀 **[點擊前往系統線上試玩 (Live Demo)](https://n0800n88-ops.github.io/Smart-Location-DSS/)**
+
 > 🧠 **專案簡介：** 這是一個結合 **Google Maps API** 與 **多準則決策分析 (MCDM)** 的 Web 應用程式。系統整合了 AHP 層級分析法與 TOPSIS 排序法，協助零售業者在台北市（信義、大安、中山）進行科學化的設點評估。
 
 ### 🎥 系統演示 (System Demo)
