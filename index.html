@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Decision Support System - Smart Location Simulation</title>
+    <style>
+      /* ================= Layout Settings ================= */
+      body, html { height: 100%; margin: 0; padding: 0; font-family: "Segoe UI", "Roboto", "Helvetica", Arial, sans-serif; }
+      
+      /* Sidebar */
+      #sidebar {
+        height: 100%;
+        width: 400px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background-color: #fcfcfc;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        overflow-y: auto;
+        padding: 20px;
+        box-sizing: border-box;
+        border-right: 1px solid #e0e0e0;
+      }
+
+      /* Map */
+      #map {
+        height: 100%;
+        width: calc(100% - 400px);
+        margin-left: 400px;
+        float: left;
+      }
+
+      /* ================= Styles ================= */
+      /* Title Area with Language Switcher */
+      .header-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+      }
+      
+      h3 { 
+        color: #2c3e50; 
+        margin: 0; 
+        font-size: 1.4em;
+        line-height: 1.3;
+      }
+
+      .lang-switch {
+        cursor: pointer;
+        font-size: 1.2em;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px;
+        border-radius: 5px;
+        transition: background 0.2s;
+        /* 讓選單能浮在其他內容之上 */
+        z-index: 101; 
+      }
+      .lang-switch:hover { background-color: #eee; }
+      
+      .lang-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        border-radius: 4px;
+        z-index: 102;
+        width: 120px;
+      }
+      .lang-menu div {
+        padding: 10px;
+        cursor: pointer;
+        font-size: 0.9em;
+      }
+      .lang-menu div:hover { background-color: #f5f5f5; }
+      .show-menu { display: block; }
+
+      /* --- Details / Accordion (Step 1~3) --- */
+      details {
+        margin-bottom: 15px;
+        background-color: #fff;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      summary {
+        cursor: pointer;
+        outline: none;
+        list-style: none;
+        margin: 0;
+        color: #34495e;
+        font-size: 1.1em;
+        font-weight: bold;
+        border-left: 5px solid #e67e22;
+        padding: 10px;
+        background-color: #f5f5f5;
+        border-bottom: 1px solid transparent;
+        transition: background-color 0.2s;
+      }
+
+      summary:hover { background-color: #eee; }
+      details[open] summary { border-bottom: 1px solid #ddd; }
+      summary::after { content: "▼"; float: right; margin-right: 5px; font-size: 0.8em; color: #999; }
+      details[open] summary::after { content: "▲"; }
+      
+      .details-content { padding: 15px; }
+      summary::-webkit-details-marker { display: none; }
+
+      /* --- Guide Section --- */
+      .guide-details { margin-bottom: 15px; border: 1px solid #b3e5fc; border-radius: 6px; padding: 10px; background-color: #e1f5fe; }
+      .guide-summary { cursor: pointer; font-weight: bold; color: #0277bd; outline: none; list-style: none; background-color: transparent; border: none; padding: 0; font-size: 0.95em; }
+      .guide-summary:hover { background-color: transparent !important; }
+      .guide-summary::after { content: " ▼"; float: none; color: #0277bd; }
+      .guide-details[open] .guide-summary::after { content: " ▲"; }
+      .guide-content { font-size: 0.9em; line-height: 1.6; color: #455a64; margin-top: 10px; background-color: #fff; padding: 10px; border-radius: 4px;}
+      .guide-highlight { font-weight: bold; color: #d35400; background-color: #fff3e0; padding: 2px 5px; border-radius: 3px;}
+
+      /* --- Sliders --- */
+      .control-group { margin-bottom: 12px; }
+      .control-group label { display: block; font-weight: bold; font-size: 0.95em; margin-bottom: 4px; color: #2c3e50;}
+      .control-group small { font-size: 0.8em; font-weight: normal; margin-left: 5px; }
+      .benefit { color: #27ae60; font-weight: bold; }
+      .cost { color: #c0392b; font-weight: bold; }
+      input[type=range] { width: 100%; cursor: pointer; accent-color: #3498db; }
+
+      /* --- Input Forms --- */
+      .input-group { margin-bottom: 10px; }
+      .input-group label { display: block; font-size: 0.9em; color: #333; margin-bottom: 3px; font-weight: bold;}
+      .input-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 0.9em; }
+      .input-group input:focus { border-color: #3498db; outline: none; }
+
+      /* Editing Mode */
+      .editing-mode { border: 2px solid #f39c12; background-color: #fffaf0; padding: 10px; border-radius: 5px; position: relative;}
+      .editing-label { display: none; background: #f39c12; color: #fff; padding: 2px 8px; font-size: 0.8em; border-radius: 3px; margin-bottom: 5px; width: fit-content;}
+      
+      /* --- Buttons --- */
+      .btn { width: 100%; padding: 12px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px; transition: 0.3s; font-weight: bold; }
+      .btn:hover { filter: brightness(90%); box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+      .btn-add { background-color: #2ecc71; }
+      .btn-update { background-color: #f39c12; display: none; }
+      .btn-cancel { background-color: #95a5a6; width: 48%; float: right; margin-top: 10px; display: none;}
+      .btn-reset { background-color: #7f8c8d; margin-top: 15px; font-size: 0.9em; width: 100%;}
+      
+      /* --- Ranking List --- */
+      #ranking-list { margin-top: 0; font-size: 0.95em; }
+      .rank-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background-color: #fff; }
+      .rank-item:first-child { background-color: #fff8e1; border: 2px solid #ffe0b2; border-radius: 4px;}
+      .rank-info { flex-grow: 1; }
+      .rank-actions { display: flex; gap: 5px; }
+      .action-btn { padding: 4px 8px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.85em; transition: 0.2s; }
+      .btn-edit { background-color: #f1c40f; color: #fff; }
+      .btn-edit:hover { background-color: #f39c12; }
+      .btn-del { background-color: #e74c3c; color: #fff; }
+      .btn-del:hover { background-color: #c0392b; }
+      .user-added { color: #2980b9; font-weight: bold; background-color: #e8f4f8; }
+      .rank-score { font-family: monospace; font-size: 1.1em; font-weight: bold; color: #555;}
+    </style>
+  </head>
+  
+  <body>
+    
+    <div id="sidebar">
+      <div class="header-container">
+        <h3 data-i18n="title">DSS - Smart Location</h3>
+        
+        <div class="lang-switch" onclick="toggleLangMenu(event)" onmouseleave="closeLangMenu()">
+          🌍 <span id="current-lang-text">EN</span>
+          <div class="lang-menu" id="lang-menu">
+            <div onclick="setLanguage('en', event)">English</div>
+            <div onclick="setLanguage('tw', event)">繁體中文</div>
+          </div>
+        </div>
+      </div>
+
+      <details class="guide-details"> 
+        <summary class="guide-summary" data-i18n="guide_title">💡 Newbie Guide: Strategies</summary>
+        <div class="guide-content" id="guide-content">
+          </div>
+      </details>
+
+      <details open>
+        <summary data-i18n="step1">Step 1: Set Preferences</summary>
+        <div class="details-content">
+          <div class="control-group">
+            <label><span data-i18n="w_pop">1. Pop. Density</span> <small class="benefit" data-i18n="high">(High)</small> <span id="v-pop" style="float:right">0.14</span></label>
+            <input type="range" id="w-pop" min="0" max="1" step="0.01" value="0.139">
+          </div>
+          <div class="control-group">
+            <label><span data-i18n="w_rent">2. Rent Cost</span> <small class="cost" data-i18n="low">(Low)</small> <span id="v-rent" style="float:right">0.10</span></label>
+            <input type="range" id="w-rent" min="0" max="1" step="0.01" value="0.097">
+          </div>
+          <div class="control-group">
+            <label><span data-i18n="w_traf">3. Traffic</span> <small class="benefit" data-i18n="high">(High)</small> <span id="v-traf" style="float:right">0.26</span></label>
+            <input type="range" id="w-traf" min="0" max="1" step="0.01" value="0.262">
+          </div>
+          <div class="control-group">
+            <label><span data-i18n="w_comp">4. Competition</span> <small class="cost" data-i18n="low">(Low)</small> <span id="v-comp" style="float:right">0.09</span></label>
+            <input type="range" id="w-comp" min="0" max="1" step="0.01" value="0.089">
+          </div>
+          <div class="control-group">
+            <label><span data-i18n="w_mat">5. Maturity</span> <small class="benefit" data-i18n="high">(High)</small> <span id="v-mat" style="float:right">0.41</span></label>
+            <input type="range" id="w-mat" min="0" max="1" step="0.01" value="0.413">
+          </div>
+        </div>
+      </details>
+
+      <details id="step2-panel">
+        <summary data-i18n="step2">Step 2: Add Location</summary>
+        <div class="details-content">
+          <p style="font-size:0.85em; color:#666; margin-bottom:10px;" data-i18n="step2_desc">👇 Click on map or input manually</p>
+          
+          <div id="form-container">
+            <div class="editing-label" id="edit-label" data-i18n="editing_warn">⚠️ Editing Mode</div>
+            
+            <div class="input-group">
+              <label data-i18n="input_name">Location Name</label>
+              <input type="text" id="new-name">
+            </div>
+            
+            <div style="display:flex; gap:10px;">
+              <div class="input-group" style="flex:1">
+                <label>Lat</label>
+                <input type="text" id="new-lat" readonly style="background-color:#f9f9f9;">
+              </div>
+              <div class="input-group" style="flex:1">
+                <label>Lng</label>
+                <input type="text" id="new-lng" readonly style="background-color:#f9f9f9;">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label data-i18n="input_pop">Pop. Density (p/km²)</label>
+              <input type="number" id="new-pop">
+            </div>
+            <div class="input-group">
+              <label data-i18n="input_rent">Avg Rent ($/ping)</label>
+              <input type="number" id="new-rent">
+            </div>
+            <div class="input-group">
+              <label data-i18n="input_traf">Transit Stations</label>
+              <input type="number" id="new-traf">
+            </div>
+            <div class="input-group">
+              <label data-i18n="input_comp">Competitors</label>
+              <input type="number" id="new-comp">
+            </div>
+            <div class="input-group">
+              <label data-i18n="input_mat">Maturity (1-10)</label>
+              <input type="number" id="new-mat">
+            </div>
+
+            <button id="btn-add" class="btn btn-add" onclick="handleSave()" data-i18n="btn_add">✚ Add Location</button>
+            
+            <div style="overflow:hidden;">
+              <button id="btn-update" class="btn btn-update" style="width:48%; float:left;" onclick="handleSave()" data-i18n="btn_update">💾 Update</button>
+              <button id="btn-cancel" class="btn btn-cancel" onclick="cancelEditMode()" data-i18n="btn_cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details open>
+        <summary data-i18n="step3">Step 3: Ranking</summary>
+        <div class="details-content">
+          <div id="ranking-list"></div>
+        </div>
+      </details>
+      <button class="btn btn-reset" onclick="resetLocations()" data-i18n="btn_reset">↺ Reset All Data</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+      let map, heatmap;
+      let markers = []; 
+      let editIndex = -1; 
+      let selectionMarker = null; 
+      let currentLang = 'en'; 
+
+      const translations = {
+        en: {
+            title: "DSS - Smart Location",
+            guide_title: "💡 Beginner's Guide: Strategies",
+            guide_html: `<p>Try these common strategies:</p>
+              <ul>
+                <li><span class="guide-highlight">💰 Low Budget</span>:<br>Increase <b class="cost">Rent</b> & <b class="cost">Competition</b>. (Find cheap & less rivals)</li>
+                <li><span class="guide-highlight">🏃 High Traffic</span>:<br>Increase <b class="benefit">Pop. Density</b> & <b class="benefit">Traffic</b>. (Crowds first)</li>
+                <li><span class="guide-highlight">💎 Premium</span>:<br>Increase <b class="benefit">Maturity</b>. (Prime locations)</li>
+              </ul>`,
+            step1: "Step 1: Set Preferences",
+            step2: "Step 2: Add Location",
+            step3: "Step 3: Ranking",
+            w_pop: "1. Pop. Density",
+            w_rent: "2. Rent Cost",
+            w_traf: "3. Traffic",
+            w_comp: "4. Competition",
+            w_mat: "5. Maturity",
+            high: "(High)",
+            low: "(Low)",
+            step2_desc: "👇 Click on map or input manually",
+            editing_warn: "⚠️ Editing Mode...",
+            input_name: "Location Name",
+            input_pop: "Pop. Density (p/km²)",
+            input_rent: "Avg Rent ($/ping)",
+            input_traf: "Transit Stations",
+            input_comp: "Competitors",
+            input_mat: "Maturity (1-10)",
+            btn_add: "✚ Add Location",
+            btn_update: "💾 Update",
+            btn_cancel: "Cancel",
+            btn_reset: "↺ Reset All Data",
+            ph_name: "Ex: Neihu Store",
+            ph_lat: "Click map to fill",
+            ph_pop: "Ex: Xinyi ~18000",
+            ph_rent: "Ex: Da'an ~3700",
+            ph_traf: "Ex: MRT+Bus ~260",
+            ph_comp: "Ex: Xinyi ~70",
+            ph_mat: "Ex: Xinyi 9",
+            alert_loc: "Please click on the map first!",
+            alert_del: "Are you sure you want to delete ",
+            alert_reset: "Are you sure you want to reset all data?",
+            default_name: "New Location"
+        },
+        tw: {
+            title: "決策支援系統 - 選址模擬",
+            guide_title: "💡 我是新手，該怎麼調權重？",
+            guide_html: `<p>請參考這三種常見策略：</p>
+              <ul>
+                <li><span class="guide-highlight">💰 小資創業</span>：<br>調高 <b class="cost">租金</b> 與 <b class="cost">競爭</b>。(找便宜、對手少的)</li>
+                <li><span class="guide-highlight">🏃 人流至上</span>：<br>調高 <b class="benefit">人口</b> 與 <b class="benefit">交通</b>。(人多最重要)</li>
+                <li><span class="guide-highlight">💎 品牌旗艦</span>：<br>調高 <b class="benefit">商圈成熟</b>。(要最知名地段)</li>
+              </ul>`,
+            step1: "Step 1: 設定權重偏好",
+            step2: "Step 2: 新增模擬地點",
+            step3: "Step 3: 評分排名",
+            w_pop: "1. 人口密度",
+            w_rent: "2. 租金成本",
+            w_traf: "3. 交通便利",
+            w_comp: "4. 競爭密度",
+            w_mat: "5. 商圈成熟",
+            high: "(高)",
+            low: "(低)",
+            step2_desc: "👇 在地圖上點一下，或手動輸入數據",
+            editing_warn: "⚠️ 正在編輯中...",
+            input_name: "地點名稱",
+            input_pop: "人口密度 (人/km²)",
+            input_rent: "平均租金 (元/坪)",
+            input_traf: "交通總站數 (捷運+公車)",
+            input_comp: "競爭店數",
+            input_mat: "商圈成熟度 (1-10)",
+            btn_add: "✚ 加入模擬",
+            btn_update: "💾 更新資料",
+            btn_cancel: "取消",
+            btn_reset: "↺ 重置所有資料",
+            ph_name: "例如：內湖店",
+            ph_lat: "點地圖自動填",
+            ph_pop: "參考：信義約18000",
+            ph_rent: "參考：大安約3700",
+            ph_traf: "例如：捷運10+公車250=260",
+            ph_comp: "參考：信義約70",
+            ph_mat: "參考：信義9分",
+            alert_loc: "請先點擊地圖設定位置！",
+            alert_del: "確定要刪除",
+            alert_reset: "確定要重置所有資料嗎？",
+            default_name: "新地點"
+        }
+      };
+      
+      const defaultDistricts = [
+        { name: "Xinyi District", name_tw: "信義區", lat: 25.033964, lng: 121.564468, raw: { pop: 17995.57, rent: 2618, traf: 214, comp: 70, mat: 9 }, isUser: false },
+        { name: "Da'an District", name_tw: "大安區", lat: 25.034180, lng: 121.543460, raw: { pop: 24858.97, rent: 3715, traf: 264, comp: 236, mat: 8 }, isUser: false },
+        { name: "Zhongshan Dist.", name_tw: "中山區", lat: 25.068500, lng: 121.527600, raw: { pop: 15522.18, rent: 2638, traf: 297, comp: 174, mat: 7 }, isUser: false }
+      ];
+
+      let currentDistricts = JSON.parse(JSON.stringify(defaultDistricts));
+
+      const indicators = {
+        pop:  { type: 1 }, rent: { type: -1 }, traf: { type: 1 }, comp: { type: -1 }, mat:  { type: 1 }
+      };
+
+      // --- 修改後的語言切換邏輯 ---
+      
+      function toggleLangMenu(e) {
+        if(e) e.stopPropagation(); 
+        document.getElementById('lang-menu').classList.toggle('show-menu');
+      }
+
+      function closeLangMenu() {
+        // 滑鼠離開時呼叫此函式，關閉選單
+        document.getElementById('lang-menu').classList.remove('show-menu');
+      }
+
+      function setLanguage(lang, e) {
+        if(e) e.stopPropagation(); 
+        currentLang = lang;
+        document.getElementById('current-lang-text').innerText = lang === 'en' ? 'EN' : 'TW';
+        
+        closeLangMenu(); // 選完後直接關閉
+
+        const t = translations[lang];
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (t[key]) el.innerText = t[key];
+        });
+
+        document.getElementById('guide-content').innerHTML = t.guide_html;
+
+        document.getElementById('new-name').placeholder = t.ph_name;
+        document.getElementById('new-lat').placeholder = t.ph_lat;
+        document.getElementById('new-lng').placeholder = t.ph_lat;
+        document.getElementById('new-pop').placeholder = t.ph_pop;
+        document.getElementById('new-rent').placeholder = t.ph_rent;
+        document.getElementById('new-traf').placeholder = t.ph_traf;
+        document.getElementById('new-comp').placeholder = t.ph_comp;
+        document.getElementById('new-mat').placeholder = t.ph_mat;
+
+        runTOPSIS();
+      }
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 12, center: {lat: 25.05, lng: 121.54}, mapTypeId: 'roadmap',
+          styles: [{ featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] }]
+        });
+
+        heatmap = new google.maps.visualization.HeatmapLayer({
+          data: [], map: map, radius: 70, opacity: 0.85
+        });
+
+        map.addListener("click", (e) => {
+          document.getElementById('new-lat').value = e.latLng.lat().toFixed(6);
+          document.getElementById('new-lng').value = e.latLng.lng().toFixed(6);
+   
+          document.getElementById('step2-panel').open = true;
+
+          if (selectionMarker) {
+            selectionMarker.setMap(null);
+          }
+          selectionMarker = new google.maps.Marker({
+            position: e.latLng, map: map, 
+            title: currentLang === 'en' ? "Selected Location" : "目前選擇位置", 
+            animation: google.maps.Animation.DROP
+          });
+        });
+
+        ['pop', 'rent', 'traf', 'comp', 'mat'].forEach(key => {
+          document.getElementById('w-' + key).addEventListener('input', function() {
+            document.getElementById('v-' + key).innerText = this.value;
+            runTOPSIS();
+          });
+        });
+
+        setLanguage('en'); 
+      }
+
+      function runTOPSIS() {
+        let W = {
+          pop: parseFloat(document.getElementById('w-pop').value),
+          rent: parseFloat(document.getElementById('w-rent').value),
+          traf: parseFloat(document.getElementById('w-traf').value),
+          comp: parseFloat(document.getElementById('w-comp').value),
+          mat: parseFloat(document.getElementById('w-mat').value)
+        };
+
+        // 1. Normalize
+        let denominators = {};
+        for(let key in indicators) {
+          let sumSquares = currentDistricts.reduce((sum, d) => sum + Math.pow(d.raw[key], 2), 0);
+          denominators[key] = Math.sqrt(sumSquares);
+        }
+
+        let weightedData = [];
+        let PIS = {}, NIS = {}; 
+        for(let key in indicators) { PIS[key] = -Infinity; NIS[key] = Infinity; }
+
+        currentDistricts.forEach((d, index) => {
+          let row = { ...d, weighted: {}, id: index }; 
+          for(let key in indicators) {
+            let val = (d.raw[key] / denominators[key]) * W[key];
+            row.weighted[key] = val;
+            if(val > PIS[key]) PIS[key] = val;
+            if(val < NIS[key]) NIS[key] = val;
+          }
+          weightedData.push(row);
+        });
+
+        let realPIS = {}, realNIS = {};
+        for(let key in indicators) {
+          if(indicators[key].type === 1) { realPIS[key] = PIS[key]; realNIS[key] = NIS[key]; }
+          else { realPIS[key] = NIS[key]; realNIS[key] = PIS[key]; }
+        }
+
+        // 2. Score Calculation
+        let results = [];
+        weightedData.forEach((d) => {
+          let distPlus = 0, distMinus = 0;
+          for(let key in indicators) {
+            distPlus += Math.pow(d.weighted[key] - realPIS[key], 2);
+            distMinus += Math.pow(d.weighted[key] - realNIS[key], 2);
+          }
+          let S_plus = Math.sqrt(distPlus);
+          let S_minus = Math.sqrt(distMinus);
+          let score = (S_plus + S_minus) === 0 ? 0 : S_minus / (S_plus + S_minus);
+          
+          results.push({ ...d, score });
+        });
+
+        // 3. Draw Heatmap
+        let heatPoints = [];
+        let ranking = [];
+        
+        markers.forEach(m => m.setMap(null));
+        markers = [];
+
+        results.forEach((item) => {
+          heatPoints.push({ location: new google.maps.LatLng(item.lat, item.lng), weight: item.score * 40 });
+          ranking.push({ 
+              id: item.id, 
+              name: (currentLang === 'en' && item.name_tw) ? item.name : (currentLang === 'tw' && item.name_tw ? item.name_tw : item.name),
+              score: item.score, 
+              isUser: item.isUser 
+          });
+        });
+
+        heatmap.setData(heatPoints);
+        updateRankingUI(ranking);
+      }
+
+      function updateRankingUI(ranking) {
+        ranking.sort((a, b) => b.score - a.score);
+        
+        let html = "";
+        ranking.forEach((item, i) => {
+          let icon = (i===0) ? "👑" : `#${i+1}`;
+          let bgClass = item.isUser ? "user-added" : "";
+          
+          let t = translations[currentLang];
+          let actions = `
+            <div class="rank-actions">
+              <button class="action-btn btn-edit" onclick="editLocation(${item.id})" title="Edit">✏️</button>
+              <button class="action-btn btn-del" onclick="deleteLocation(${item.id})" title="Delete">🗑️</button>
+            </div>
+          `;
+
+          html += `
+            <div class="rank-item ${bgClass}">
+              <div class="rank-info">
+                <span>${icon} ${item.name}</span> <br>
+                <span class="rank-score">Score: ${item.score.toFixed(4)}</span>
+              </div>
+              ${actions}
+            </div>
+          `;
+        });
+        document.getElementById('ranking-list').innerHTML = html;
+      }
+
+      function handleSave() {
+        let t = translations[currentLang];
+        let name = document.getElementById('new-name').value;
+        let lat = parseFloat(document.getElementById('new-lat').value);
+        let lng = parseFloat(document.getElementById('new-lng').value);
+        
+        if(!name) name = t.default_name;
+        if(isNaN(lat) || isNaN(lng)) { alert(t.alert_loc); return; }
+        
+        let raw = {
+          pop: parseFloat(document.getElementById('new-pop').value) || 0,
+          rent: parseFloat(document.getElementById('new-rent').value) || 0,
+          traf: parseFloat(document.getElementById('new-traf').value) || 0,
+          comp: parseFloat(document.getElementById('new-comp').value) || 0,
+          mat: parseFloat(document.getElementById('new-mat').value) || 0
+        };
+
+        if(editIndex === -1) {
+          currentDistricts.push({ name, lat, lng, raw, isUser: true });
+        } else {
+          currentDistricts[editIndex] = { ...currentDistricts[editIndex], name, lat, lng, raw, isUser: true }; 
+          cancelEditMode(); 
+        }
+        
+        if (selectionMarker) {
+          selectionMarker.setMap(null);
+          selectionMarker = null;
+        }
+        
+        runTOPSIS();
+        clearForm();
+        
+        document.getElementById('step2-panel').open = false;
+      }
+
+      function editLocation(index) {
+        let d = currentDistricts[index];
+        editIndex = index;
+
+        let displayName = d.name;
+        if(currentLang === 'tw' && d.name_tw) displayName = d.name_tw;
+
+        document.getElementById('new-name').value = displayName;
+        document.getElementById('new-lat').value = d.lat;
+        document.getElementById('new-lng').value = d.lng;
+        document.getElementById('new-pop').value = d.raw.pop;
+        document.getElementById('new-rent').value = d.raw.rent;
+        document.getElementById('new-traf').value = d.raw.traf;
+        document.getElementById('new-comp').value = d.raw.comp;
+        document.getElementById('new-mat').value = d.raw.mat;
+
+        document.getElementById('form-container').classList.add('editing-mode');
+        document.getElementById('edit-label').style.display = 'block';
+        document.getElementById('btn-add').style.display = 'none';
+        document.getElementById('btn-update').style.display = 'block';
+        document.getElementById('btn-cancel').style.display = 'block';
+
+        document.getElementById('step2-panel').open = true;
+      }
+
+      function cancelEditMode() {
+        editIndex = -1;
+        clearForm();
+        if (selectionMarker) {
+          selectionMarker.setMap(null);
+          selectionMarker = null;
+        }
+   
+        document.getElementById('form-container').classList.remove('editing-mode');
+        document.getElementById('edit-label').style.display = 'none';
+        document.getElementById('btn-add').style.display = 'block';
+        document.getElementById('btn-update').style.display = 'none';
+        document.getElementById('btn-cancel').style.display = 'none';
+        
+        document.getElementById('step2-panel').open = false;
+      }
+
+      function deleteLocation(index) {
+        let t = translations[currentLang];
+        let dName = currentLang === 'tw' && currentDistricts[index].name_tw ? currentDistricts[index].name_tw : currentDistricts[index].name;
+        
+        if(!confirm(`${t.alert_del} "${dName}"?`)) return;
+        if(index === editIndex) cancelEditMode();
+        currentDistricts.splice(index, 1);
+        runTOPSIS();
+      }
+
+      function clearForm() {
+        document.getElementById('new-name').value = "";
+        document.getElementById('new-pop').value = "";
+        document.getElementById('new-rent').value = "";
+        document.getElementById('new-traf').value = "";
+        document.getElementById('new-comp').value = "";
+        document.getElementById('new-mat').value = "";
+        document.getElementById('new-lat').value = "";
+        document.getElementById('new-lng').value = "";
+      }
+
+      function resetLocations() {
+        let t = translations[currentLang];
+        if(!confirm(t.alert_reset)) return;
+        currentDistricts = JSON.parse(JSON.stringify(defaultDistricts));
+        cancelEditMode();
+        runTOPSIS();
+      }
+    </script>
+    
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXcaJqg9l4PHdrMZmM3GpWH749oW3wBt8&libraries=visualization&language=en&callback=initMap">
+    </script>
+  </body>
+</html>
